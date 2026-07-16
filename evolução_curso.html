@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skill Tree Estatística e Ciência de Dados</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+
+        body {
+            background-color: #0f172a; 
+            color: #f8fafc;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        header {
+            background: #1e293b;
+            padding: 16px 24px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+            z-index: 10;
+            border-bottom: 1px solid #334155;
+        }
+
+        h1 { font-size: 20px; margin-bottom: 4px; color: #f1f5f9; }
+        p { font-size: 13px; color: #94a3b8; margin-bottom: 12px; }
+
+        .legend { display: flex; gap: 14px; font-size: 12px; flex-wrap: wrap; }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .legend-dot { width: 12px; height: 12px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); }
+
+        .canvas-container {
+            flex: 1;
+            width: 100%;
+            overflow: auto;
+            background-color: #0b0f19;
+            position: relative;
+            
+            /* Oculta a barra de rolagem */
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        
+        .canvas-container::-webkit-scrollbar {
+            display: none; /* Oculta a barra no Chrome/Safari/Edge */
+        }
+
+        .canvas-container.dragging {
+            user-select: none; /* Evita que os textos fiquem azuis sem querer ao arrastar */
+        }
+
+        #board {
+            width: 2400px;
+            height: 2400px;
+            position: relative;
+        }
+
+        #edge-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* Estilo base dos blocos (Bloqueados) */
+        .node {
+            position: absolute;
+            width: 145px;
+            height: 60px;
+            background: #111827; 
+            border: 2px solid #1e293b;
+            border-radius: 8px;
+            padding: 6px 4px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 11px;
+            font-weight: 600;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            cursor: pointer;
+            z-index: 5;
+            transform: translate(-50%, -50%);
+            transition: all 0.2s ease;
+            color: #475569; 
+        }
+
+        .node-code {
+            font-size: 10px;
+            font-weight: 800;
+            margin-bottom: 2px;
+            color: #475569;
+        }
+
+        /* TOOLTIP PARA NÓS BLOQUEADOS */
+        .node[data-missing]::after {
+            content: attr(data-missing);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translate(-50%, -8px);
+            background-color: #0f172a;
+            border: 1px solid #475569;
+            color: #cbd5e1;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 500;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+            z-index: 50;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        .node[data-missing]:hover::after {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, -12px); /* Dá um efeitinho de subir ao aparecer */
+        }
+
+        /* ESTADO 1: MATÉRIA DESBLOQUEADA */
+        .node.unlocked {
+            background: #1e293b;
+            color: #f1f5f9;
+            border-width: 2px;
+            border-color: #3b82f6; /* Cor azul para todas as bordas */
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.15);
+        }
+        .node.unlocked .node-code {
+            color: #60a5fa; /* Cor azul claro para o código de todas */
+        }
+
+        .node.unlocked:hover {
+            transform: translate(-50%, -50%) scale(1.08);
+            box-shadow: 0 0 20px rgba(255,255,255,0.15);
+        }
+
+        /* ESTADO 2: MATÉRIA CONCLUÍDA */
+        .node.completed {
+            background: #10b981 !important;
+            border-color: #047857 !important;
+            color: #ffffff !important;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.5) !important;
+        }
+        .node.completed .node-code { color: #ffffff !important; }
+
+        /* Nó de Entrada Especial (Centro) */
+        .m-start {
+            width: 120px;
+            height: 120px;
+            border-radius: 50% !important;
+            border: 4px dashed #eab308 !important;
+            background: #1e1b4b !important;
+            box-shadow: 0 0 20px rgba(234, 179, 8, 0.3);
+            color: #fef08a;
+        }
+        .m-start .node-title { font-size: 13px; font-weight: 800; }
+        
+        .m-start.completed {
+            background: #eab308 !important;
+            border-color: #ca8a04 !important;
+            box-shadow: 0 0 25px rgba(234, 179, 8, 0.6) !important;
+        }
+        .m-start.completed .node-title { color: #1e1b4b !important; }
+
+        /* Estilo para os anéis de fundo da teia */
+        .web-ring {
+            fill: none;
+            stroke: #1e293b;
+            stroke-width: 1;
+            stroke-dasharray: 4 4;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Skill Tree Curricular: Estatística e Ciência de Dados</h1>
+    <p>Clique em <b>Início do Curso</b>. As matérias liberadas para matrícula acenderão automaticamente.</p>
+    <div class="legend">
+        <div class="legend-item"><span class="legend-dot" style="background: #111827; border: 2px solid #1e293b"></span>Bloqueada</div>
+        <div class="legend-item"><span class="legend-dot" style="background: #1e293b; border: 2px solid #3b82f6"></span>Desbloqueada</div>
+        <div class="legend-item"><span class="legend-dot" style="background: #10b981; border: 2px solid #047857"></span>Concluída</div>
+    </div>
+</header>
+
+<div class="canvas-container" id="canvas-view">
+    <div id="board">
+        <svg id="edge-svg">
+            <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="18" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 1 L 10 5 L 0 9 z" fill="#1e293b"/>
+                </marker>
+                <marker id="arrow-unlocked" viewBox="0 0 10 10" refX="18" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/>
+                </marker>
+                <marker id="arrow-active" viewBox="0 0 10 10" refX="18" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981"/>
+                </marker>
+                <marker id="arrow-start" viewBox="0 0 10 10" refX="18" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 1 L 10 5 L 0 9 z" fill="#eab308"/>
+                </marker>
+            </defs>
+            
+            <circle cx="1200" cy="1200" r="310" class="web-ring" />
+            <circle cx="1200" cy="1200" r="420" class="web-ring" />
+            <circle cx="1200" cy="1200" r="530" class="web-ring" />
+            <circle cx="1200" cy="1200" r="640" class="web-ring" />
+            <circle cx="1200" cy="1200" r="750" class="web-ring" />
+            <circle cx="1200" cy="1200" r="860" class="web-ring" />
+            <circle cx="1200" cy="1200" r="970" class="web-ring" />
+            <circle cx="1200" cy="1200" r="1080" class="web-ring" />
+        </svg>
+    </div>
+</div>
+
+<script>
+    const subjects = [
+        { id: "START", code: "🚀", title: "Início do Curso", group: "m-start", sem: 0 },
+
+        // TRILHA MATEMÁTICA
+        { id: "SMA0801", code: "SMA0801", title: "Cálculo I", group: "m-mat", sem: 1 },
+        { id: "SMA0800", code: "SMA0800", title: "Geometria Analítica", group: "m-mat", sem: 1 },
+        { id: "SMA0805", code: "SMA0805", title: "Tópicos de Matemática", group: "m-mat", sem: 1 },
+        { id: "SMA0802", code: "SMA0802", title: "Cálculo II", group: "m-mat", sem: 2 },
+        { id: "SMA0804", code: "SMA0804", title: "Álgebra Linear", group: "m-mat", sem: 2 },
+        { id: "SMA0803", code: "SMA0803", title: "Cálculo III", group: "m-mat", sem: 3 },
+        { id: "SME0892", code: "SME0892", title: "Cálculo Numérico", group: "m-mat", sem: 3 },
+
+        // TRILHA PROBABILIDADE E INFERÊNCIA
+        { id: "SME0800", code: "SME0800", title: "Probabilidade I", group: "m-prob", sem: 2 },
+        { id: "SME0801", code: "SME0801", title: "Probabilidade II", group: "m-prob", sem: 3 },
+        { id: "SME0818", code: "SME0818", title: "Inferência Estatística", group: "m-prob", sem: 3 },
+        { id: "SME0805", code: "SME0805", title: "Processos Estocásticos", group: "m-prob", sem: 4 },
+        { id: "SME0809", code: "SME0809", title: "Inferência Bayesiana", group: "m-prob", sem: 4 },
+
+        // TRILHA COMPUTAÇÃO E DATA SCIENCE
+        { id: "SME0803", code: "SME0803", title: "VED", group: "m-comp", sem: 1 },
+        { id: "SSC0800", code: "SSC0800", title: "ICC", group: "m-comp", sem: 2 },
+        { id: "SSC0801", code: "SSC0801", title: "Lab. ICC", group: "m-comp", sem: 2 },
+        { id: "SME0827", code: "SME0827", title: "Estrutura de Dados", group: "m-comp", sem: 3 },
+        { id: "SME0828", code: "SME0828", title: "ICD", group: "m-comp", sem: 4 },
+        { id: "SME0829", code: "SME0829", title: "Aprendizado de Máquina", group: "m-comp", sem: 5 },
+        { id: "SME0878", code: "SME0878", title: "Mineração de Dados", group: "m-comp", sem: 7 },
+
+        // TRILHA ESTATÍSTICA APLICADA
+        { id: "SME0820", code: "SME0820", title: "Regressão Sup. I", group: "m-appl", sem: 4 },
+        { id: "SME0824", code: "SME0824", title: "Gestão da Qualidade", group: "m-appl", sem: 4 },
+        { id: "SME0806", code: "SME0806", title: "Est. Computacional", group: "m-appl", sem: 5 },
+        { id: "SME0807", code: "SME0807", title: "Amostragem", group: "m-appl", sem: 5 },
+        { id: "SME0816", code: "SME0816", title: "Planejamento Exp.", group: "m-appl", sem: 5 },
+        { id: "SME0821", code: "SME0821", title: "Análise Sobrev.", group: "m-appl", sem: 5 },
+        { id: "SME0808", code: "SME0808", title: "Séries Temporais", group: "m-appl", sem: 6 },
+        { id: "SME0810", code: "SME0810", title: "Não Paramétricos", group: "m-appl", sem: 6 },
+        { id: "SME0822", code: "SME0822", title: "Análise Multiv.", group: "m-appl", sem: 6 },
+        { id: "SME0823", code: "SME0823", title: "Regressão Sup. II", group: "m-appl", sem: 6 },
+        { id: "SME0882", code: "SME0882", title: "Consultoria Est.", group: "m-appl", sem: 7 },
+
+        // TRILHA FORMAÇÃO GERAL
+        { id: "SME0825", code: "SME0825", title: "Metodologia Científica", group: "m-gen", sem: 1 },
+        { id: "SME0814", code: "SME0814", title: "Estágio Superv.", group: "m-gen", sem: 8 }
+    ];
+
+    const dependencies = [
+        { from: "START", to: "SMA0801" }, { from: "START", to: "SMA0800" },
+        { from: "START", to: "SMA0805" }, { from: "START", to: "SME0803" },
+        { from: "START", to: "SME0825" }, { from: "START", to: "SMA0804" },
+        { from: "START", to: "SSC0800" }, { from: "START", to: "SSC0801" },
+
+        { from: "SMA0801", to: "SMA0802" }, { from: "SMA0801", to: "SME0800" },
+        { from: "SMA0801", to: "SMA0803" }, { from: "SMA0801", to: "SME0892" },
+        { from: "SMA0804", to: "SME0892" }, { from: "SSC0800", to: "SME0892" },
+        { from: "SMA0802", to: "SME0801" }, { from: "SME0800", to: "SME0801" },
+        { from: "SME0800", to: "SME0818" }, { from: "SSC0800", to: "SME0827" },
+        { from: "SSC0801", to: "SME0827" }, { from: "SME0800", to: "SME0805" },
+        { from: "SME0801", to: "SME0809" }, { from: "SME0818", to: "SME0809" },
+        { from: "SME0818", to: "SME0820" }, { from: "SME0818", to: "SME0824" },
+        { from: "SME0827", to: "SME0828" }, { from: "SME0818", to: "SME0806" },
+        { from: "SME0818", to: "SME0807" }, { from: "SME0818", to: "SME0816" },
+        { from: "SME0818", to: "SME0821" }, { from: "SME0828", to: "SME0829" },
+        { from: "SME0818", to: "SME0808" }, { from: "SME0818", to: "SME0810" },
+        { from: "SME0818", to: "SME0822" }, { from: "SME0818", to: "SME0823" },
+        { from: "SME0820", to: "SME0878" }, { from: "SSC0800", to: "SME0878" },
+        { from: "SME0822", to: "SME0878" }, { from: "SME0818", to: "SME0878" },
+        { from: "SME0800", to: "SME0878" }, { from: "SME0818", to: "SME0882" },
+        { from: "SME0818", to: "SME0814" }
+    ];
+
+    const board = document.getElementById('board');
+    const svg = document.getElementById('edge-svg');
+    const completed = new Set();
+    
+    const centerX = 1200;
+    const centerY = 1200;
+
+    const trackAngles = {
+        "m-mat": 0 * Math.PI / 180,       
+        "m-prob": 72 * Math.PI / 180,     
+        "m-appl": 144 * Math.PI / 180,    
+        "m-comp": 216 * Math.PI / 180,    
+        "m-gen": 288 * Math.PI / 180      
+    };
+
+    const trackSemCounters = {};
+    subjects.forEach(sub => {
+        if (sub.id === "START") return;
+        const key = `${sub.group}-${sub.sem}`;
+        if (!trackSemCounters[key]) trackSemCounters[key] = { current: 0, total: 0 };
+        trackSemCounters[key].total++;
+    });
+
+    subjects.forEach(sub => {
+        if (sub.id === "START") {
+            sub.x = centerX;
+            sub.y = centerY;
+        } else {
+            const key = `${sub.group}-${sub.sem}`;
+            const counter = trackSemCounters[key];
+            const radius = 200 + (sub.sem * 110); 
+            
+            let angleOffset = 0;
+            if (counter.total > 1) {
+                const spread = 0.38; 
+                angleOffset = (counter.current / (counter.total - 1)) * spread - (spread / 2);
+            }
+            counter.current++;
+
+            const finalAngle = trackAngles[sub.group] + angleOffset;
+            sub.x = centerX + radius * Math.cos(finalAngle);
+            sub.y = centerY + radius * Math.sin(finalAngle);
+        }
+
+        const div = document.createElement('div');
+        div.id = sub.id;
+        div.style.left = `${sub.x}px`;
+        div.style.top = `${sub.y}px`;
+        
+        if (sub.id === "START") {
+            div.className = `node ${sub.group}`;
+            div.innerHTML = `<div class="node-title">${sub.title}</div>`;
+        } else {
+            div.className = `node ${sub.group}`; 
+            div.innerHTML = `<div class="node-code">${sub.code}</div><div class="node-title">${sub.title}</div>`;
+        }
+        
+        div.addEventListener('click', () => {
+            if (completed.has(sub.id)) completed.delete(sub.id);
+            else completed.add(sub.id);
+            
+            updateGameStates();
+            drawLines();
+        });
+
+        board.appendChild(div);
+    });
+
+    function updateGameStates() {
+        subjects.forEach(sub => {
+            const el = document.getElementById(sub.id);
+            if (!el) return;
+
+            // Limpa o tooltip por padrão toda vez que o estado atualiza
+            el.removeAttribute('data-missing');
+
+            if (completed.has(sub.id)) {
+                el.className = `node ${sub.group} completed`;
+                return;
+            }
+
+            if (sub.id === "START") {
+                el.className = `node ${sub.group}`;
+                return;
+            }
+
+            // Descobre quais são as matérias necessárias
+            const prereqs = dependencies.filter(d => d.to === sub.id);
+            
+            // Descobre QUAIS dessas matérias necessárias ainda NÃO foram feitas
+            const missingPrereqs = prereqs.filter(d => !completed.has(d.from));
+            
+            // A matéria só é liberada se tiver requisitos e nenhum estiver faltando
+            const allMet = prereqs.length > 0 && missingPrereqs.length === 0;
+
+            if (allMet) {
+                el.className = `node ${sub.group} unlocked`; 
+            } else {
+                el.className = `node ${sub.group}`; 
+                
+                // Se a matéria está bloqueada e tem requisitos faltando, cria o Tooltip
+                if (missingPrereqs.length > 0) {
+                    const missingTitles = missingPrereqs.map(d => {
+                        const req = subjects.find(s => s.id === d.from);
+                        return req ? req.title : d.from;
+                    });
+                    
+                    // Salva os nomes no atributo invisível que o CSS vai usar para mostrar a caixa preta
+                    el.setAttribute('data-missing', 'Falta: ' + missingTitles.join(', '));
+                }
+            }
+        });
+    }
+
+    function drawLines() {
+        const oldLines = svg.querySelectorAll('.wire');
+        oldLines.forEach(l => l.remove());
+
+        dependencies.forEach(dep => {
+            const fromSub = subjects.find(s => s.id === dep.from);
+            const toSub = subjects.find(s => s.id === dep.to);
+            const toEl = document.getElementById(dep.to);
+
+            if (fromSub && toSub && toEl) {
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                
+                const midX = (fromSub.x + toSub.x) / 2 + (centerX - (fromSub.x + toSub.x)/2) * 0.04;
+                const midY = (fromSub.y + toSub.y) / 2 + (centerY - (fromSub.y + toSub.y)/2) * 0.04;
+                
+                const d = `M ${fromSub.x} ${fromSub.y} Q ${midX} ${midY} ${toSub.x} ${toSub.y}`;
+                path.setAttribute('d', d);
+                path.setAttribute('class', 'wire');
+                path.setAttribute('fill', 'none');
+
+                if (completed.has(fromSub.id)) {
+                    if (fromSub.id === "START") {
+                        path.setAttribute('stroke', '#eab308'); 
+                        path.setAttribute('marker-end', 'url(#arrow-start)');
+                    } else {
+                        path.setAttribute('stroke', '#10b981'); 
+                        path.setAttribute('marker-end', 'url(#arrow-active)');
+                    }
+                    path.setAttribute('stroke-width', '2.2');
+                } else if (toEl.classList.contains('unlocked')) {
+                    path.setAttribute('stroke', '#475569');
+                    path.setAttribute('stroke-width', '1.5');
+                    path.setAttribute('marker-end', 'url(#arrow-unlocked)');
+                } else {
+                    path.setAttribute('stroke', '#1e293b');
+                    path.setAttribute('stroke-width', '1.0');
+                    path.setAttribute('marker-end', 'url(#arrow)');
+                }
+                svg.appendChild(path);
+            }
+        });
+    }
+
+    updateGameStates();
+    drawLines();
+    
+    const container = document.getElementById('canvas-view');
+    container.scrollLeft = 800;
+    container.scrollTop = 800;
+
+    //  Navegação de arrastar (estilo google maps)
+    let isDragging = false;
+    let startX, startY, startScrollLeft, startScrollTop;
+
+    container.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        container.classList.add('dragging');
+        
+        startX = e.pageX - container.offsetLeft;
+        startY = e.pageY - container.offsetTop;
+        startScrollLeft = container.scrollLeft;
+        startScrollTop = container.scrollTop;
+    });
+
+    container.addEventListener('mouseleave', () => {
+        isDragging = false;
+        container.classList.remove('dragging');
+    });
+
+    container.addEventListener('mouseup', () => {
+        isDragging = false;
+        container.classList.remove('dragging');
+    });
+
+    container.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        
+        const currentX = e.pageX - container.offsetLeft;
+        const currentY = e.pageY - container.offsetTop;
+        
+        const moveX = (currentX - startX) * 1.5;
+        const moveY = (currentY - startY) * 1.5;
+        
+        container.scrollLeft = startScrollLeft - moveX;
+        container.scrollTop = startScrollTop - moveY;
+    });
+</script>
+
+</body>
+</html>
