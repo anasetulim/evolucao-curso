@@ -6,4 +6,4 @@ O projeto permite explorar a estrutura do curso de forma dinâmica, evidenciando
 
 Ao marcar as disciplinas já concluídas, as próximas matérias elegíveis são desbloqueadas automaticamente, proporcionando uma experiência visual intuitiva para acompanhar a evolução no curso.
 
-Além disso, o projeto serviu como prática de desenvolvimento front-end utilizando apenas HTML, CSS e JavaScript.
+Além disso, o projeto serviu como prática de desenvolvimento front-end utilizando HTML, CSS e JavaScript.
