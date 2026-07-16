@@ -267,13 +267,14 @@
 
         // TRILHA FORMAÇÃO GERAL
         { id: "SME0825", code: "SME0825", title: "Metodologia Científica", group: "m-gen", sem: 1 },
+        { id: "SME0890", code: "SME0890", title: "Direcionamento Acadêmico", group: "m-gen", sem: 1 },
         { id: "SME0814", code: "SME0814", title: "Estágio Superv.", group: "m-gen", sem: 8 }
     ];
 
     const dependencies = [
         { from: "START", to: "SMA0801" }, { from: "START", to: "SMA0800" },
         { from: "START", to: "SMA0805" }, { from: "START", to: "SME0803" },
-        { from: "START", to: "SME0825" }, { from: "START", to: "SMA0804" },
+        { from: "START", to: "SME0825" }, { from: "START", to: "SME0890" }, { from: "START", to: "SMA0804" },
         { from: "START", to: "SSC0800" }, { from: "START", to: "SSC0801" },
 
         { from: "SMA0801", to: "SMA0802" }, { from: "SMA0801", to: "SME0800" },
